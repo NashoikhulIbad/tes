@@ -1,0 +1,273 @@
+<script type="module" defer>
+    import { httpPost, httpGet } from './assets/js/core/http.js';
+    import { getCurrentUser, getSelectedPasien, getFormEntries, setFormEntries } from './assets/js/core/helpers.js';
+    import EvoDialog from './components/EvoDialog.js';
+
+    const mainDialog = new EvoDialog('mainDialog');
+    const existingData = {};
+    const loadData = async () => {
+        const listpasien = document.getElementById('daftarpasien-title');
+        const currentuser = getCurrentUser('kd_user');
+        const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+        const frm_data = { kd_user: selectedpasien.kd_user };
+        let rs = await httpGet(`http://192.168.4.246/training/pendidikan/api/penerimaan_siswa/load`, frm_data);
+        const frm_entries = document.getElementById('penerimaan_siswa-entries');
+        let dataset = []
+        if (rs.code == 200) dataset = rs.data;
+        let res = setFormEntries(frm_entries, dataset);
+        loadTabel();
+    }
+    const saveData = async () => {
+        penerimaan_siswa = getFormEntries(frm_entries);
+        const listpasien = document.getElementById('daftarpasien-title');
+        const currentuser = getCurrentUser('kd_user');
+        const no_transaksi = document.getElementById('txt_penerimaan_siswa_no_transaksi').value;
+        const universitas = document.getElementById('sel_penerimaan_siswa_universitas').value;
+        const stase = document.getElementById('sel_penerimaan_siswa_stase').value;
+        const no_surat = document.getElementById('txt_penerimaan_siswa_no_surat').value;
+        const awal_periode = document.getElementById('txt_penerimaan_siswa_awal_periode').value;
+        const akhir_periode = document.getElementById('txt_penerimaan_siswa_akhir_periode').value;
+        const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+        const frm_data = { no_transaksi, universitas, stase, no_surat, awal_periode, akhir_periode, kd_user: currentuser };
+        let rs = await httpPost(`http://192.168.4.246/training/pendidikan/api/penerimaan_siswa/save`, frm_data);
+        //return await httpPost(`${config.api_url}/penerimaan_siswa/save`, frm_data);
+        //console.log(frm_data);
+        if (rs.code == 200) {
+            loadTabel();
+        }
+        return true;
+    }
+    const saveTabel = async () => {
+        const listpasien = document.getElementById('daftarpasien-title');
+        const currentuser = getCurrentUser('kd_user');
+        const nim = document.getElementById('txt_penerimaan_siswa_nim').value;
+        const nama = document.getElementById('txt_penerimaan_siswa_nama').value;
+        const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+        const frm_data = { nim, nama, kd_user: currentuser };
+        let rs = await httpPost(`http://192.168.4.246/training/pendidikan/api/penerimaan_siswa/savetabel`, frm_data);
+        //return await httpPost(`${config.api_url}/penerimaan_siswa/save`, frm_data);
+        //console.log(frm_data);
+        if (rs.code == 200) {
+            loadTabel();
+        }
+        return true;
+    }
+    const loadTabel = async () => {
+        const listpasien = document.getElementById('daftarpasien-title');
+        const currentuser = getCurrentUser('kd_user');
+        const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+        const frm_data = { kd_user: selectedpasien.kd_user };
+        let rs = await httpGet(`http://192.168.4.246/training/pendidikan/api/penerimaan_siswa/loadtabel`, frm_data);
+        const table = document.getElementById('tbl_penerimaan_siswa_detail').getElementsByTagName('tbody')[0];
+        let dataset = [];
+        table.innerHTML = '';  // Kosongkan tbody
+        if (rs.code == 200) dataset = rs.data;
+        let no = 1;
+        dataset.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="text-900 sort white-space-nowrap align-middle px-1">${item.nim}</td>
+                <td class="text-900 sort white-space-nowrap align-middle px-1">${item.nama}</td>
+                <td class="text-900 sort white-space-nowrap align-middle text-center px-1"><button class="btn btn-sm btn-danger" id="btn_penerimaan_siswa_detail_hapus"><i class="fa-solid fa-trash"></i> Hapus</button></td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    document.penerimaan_siswa = { loadData };
+    let penerimaan_siswa = {};
+    let frm_actions = document.getElementById('penerimaan_siswa-actions');
+    const frm_entries = document.getElementById('penerimaan_siswa-entries');
+    let btn_simpan = frm_actions.querySelector('a[href="#!btn-simpan"]');
+    btn_simpan.addEventListener('click', async (e) => {
+        e.preventDefault();
+        let rs = saveData();
+        let options = {
+            size: 'small',
+            modal: true,
+            autoclose: true,
+            autoCloseAfter: 2000
+        }
+        let params = {
+            type: 'information',
+            title: '<span class="text-black">Informasi</span>',
+            content: '<span class="text-danger">Simpan pemeriksaan fisik sukses</span>'
+        };
+        if (rs.code > 200) {
+            options = {
+                size: 'small',
+                modal: true
+            }
+            params = {
+                type: 'warning',
+                title: '<span class="text-black">Peringatan</span>',
+                content: '<span class="text-danger">Simpan pemeriksaan fisik gagal!!</span>'
+            };
+        }
+        mainDialog.open(options, params);
+    })
+
+    let frm_actions2 = document.getElementById('btn_save_siswa');
+    const frm_entries2 = document.getElementById('penerimaan_siswa-entries');
+    let btn_save_siswa = frm_actions2.querySelector('a[href="#!btn-save_siswa"]');
+    btn_save_siswa.addEventListener('click', async (e) => {
+        e.preventDefault();
+        let rs = saveTabel();
+        let options = {
+            size: 'small',
+            modal: true,
+            autoclose: true,
+            autoCloseAfter: 2000
+        }
+        let params = {
+            type: 'information',
+            title: '<span class="text-black">Informasi</span>',
+            content: '<span class="text-danger">Simpan tabel tindakan sukses</span>'
+        };
+        if (rs.code > 200) {
+            options = {
+                size: 'small',
+                modal: true
+            }
+            params = {
+                type: 'warning',
+                title: '<span class="text-black">Peringatan</span>',
+                content: '<span class="text-danger">Simpan tabel tindakan gagal!!</span>'
+            };
+        }
+        mainDialog.open(options, params);
+    })
+</script>
+
+<template>
+    <div id="penerimaan_siswa-actions" class="card sticky-top">
+        <div class="card-body row justify-content-between p-0 pt-2 ps-2 pe-2">
+            <div class="col-md">
+                <h4>Penerimaan Siswa</h4>
+            </div>
+            <div class="col-auto">
+                <a class="btn btn-sm btn-secondary fs--1" href="#" role="button"><span
+                        class="fas fa-clock-rotate-left"></span>
+                    Sebelumnya</a>
+                <a class="btn btn-sm btn-secondary fs--1" href="#" role="button"><span class="fas fa-clock"></span>
+                    Sekarang</a>
+                <a class="btn btn-sm btn-primary fs--1" href="#!btn-simpan" role="button"><span
+                        class="fas fa-floppy-disk"></span> Simpan</a>
+                <a class="btn btn-sm btn-secondary fs--1" href="#!btn-cetak" role="button"><span
+                        class="fas fa-print"></span>
+                    Cetak</a>
+            </div>
+        </div>
+    </div>
+    <div id="penerimaan_siswa-entries" class="m-0 p-0 mt-1">
+        <div class="card mb-3">
+            <div class="card-body">
+                <form>
+                    <div class="row mb-4 w-75">
+                        <div class="col-2">
+                            <button class="btn btn-primary d-inline-block w-100" id="btn_penerimaan_siswa_cari"><i
+                                    class="fa-solid fa-magnifying-glass"></i> Cari</button>
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-primary d-inline-block w-100" id="btn_penerimaan_siswa_baru"><i
+                                    class="fa-solid fa-folder"></i> Baru</button>
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-danger d-inline-block w-100" id="btn_penerimaan_siswa_hapus"><i
+                                    class="fa-solid fa-trash"></i> Hapus</button>
+                        </div>
+                    </div>
+                    <div class="p-2 mb-4 border border-secondary">
+                        <div class="p-2 bg-white text-dark mt-n4" style="width: fit-content;">Penerimaan Siswa</div>
+                        <div class="row mt-2">
+                            <div class="col">
+                                <div class="mb-2">
+                                    <label class="form-label w-25">No Transaksi</label>
+                                    <input class="form-control d-inline-block w-50"
+                                        id="txt_penerimaan_siswa_no_transaksi" type="text" placeholder="No Transaksi"
+                                        data-field="no_transaksi" data-type="txt"
+                                        data-parent="penerimaan_siswa">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label w-25">Universitas</label>
+                                    <select class="form-select d-inline-block w-50"
+                                        id="sel_penerimaan_siswa_universitas" data-field="universitas" data-type="sel"
+                                        data-parent="penerimaan_siswa">
+                                        <option value="1">Opsi 1</option>
+                                        <option value="2">Opsi 2</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label w-25">Stase</label>
+                                    <select class="form-select d-inline-block w-50" id="sel_penerimaan_siswa_stase"
+                                        data-field="stase" data-type="sel" data-parent="penerimaan_siswa">
+                                        <option value="1">Opsi 1</option>
+                                        <option value="2">Opsi 2</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="mb-2">
+                                    <label class="form-label w-25">No Surat</label>
+                                    <input class="form-control d-inline-block w-50" id="txt_penerimaan_siswa_no_surat"
+                                        type="text" data-field="no_surat" data-type="txt"
+                                        data-parent="penerimaan_siswa">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label w-25">Awal Periode</label>
+                                    <input class="form-control d-inline-block w-50"
+                                        id="txt_penerimaan_siswa_awal_periode" type="date" data-field="awal_periode"
+                                        data-type="txt" data-parent="penerimaan_siswa">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label w-25">Akhir Periode</label>
+                                    <input class="form-control d-inline-block w-50"
+                                        id="txt_penerimaan_siswa_akhir_periode" type="date" data-field="akhir_periode"
+                                        data-type="txt" data-parent="penerimaan_siswa">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-2 mb-4 border border-secondary">
+                        <div class="p-2 bg-white text-dark mt-n4" style="width: fit-content;">Detail Siswa</div>
+                        <div class="row">
+                            <div class="col-3">
+                                <input class="form-control d-inline-block" id="txt_penerimaan_siswa_nim" type="text"
+                                    placeholder="NIM" data-field="nim" data-type="txt" data-parent="detail_penerimaan_siswa">
+                            </div>
+                            <div class="col-4">
+                                <input class="form-control d-inline-block" id="txt_penerimaan_siswa_nama" type="text"
+                                    placeholder="Nama Siswa" data-field="nama" data-type="txt"
+                                    data-parent="detail_penerimaan_siswa">
+                            </div>
+                            <div class="col-2" id="btn_save_siswa">
+                                <a class="btn btn-primary fs--1" href="#!btn-save_siswa" role="button"><span
+                                        class="fas fa-plus"></span> Tambah</a>
+                            </div>
+                            <div class="col-10 mt-2">
+                                <div class="table-responsive scrollbar">
+                                    <table class="table table-bordered border-secondary table-sm fs--1 overflow-hidden"
+                                        id="tbl_penerimaan_siswa_detail">
+                                        <thead class="bg-200">
+                                            <tr>
+                                                <th class="text-900 sort white-space-nowrap px-1 text-center">NIM</th>
+                                                <th class="text-900 sort white-space-nowrap px-1 text-center">Nama Siswa
+                                                </th>
+                                                <th class="text-900 sort white-space-nowrap px-1 text-center">Action
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="list" id="tbl_penerimaansiswa_data" data-parent="detail_penerimaan_siswa" data-type="tbl"
+                                            data-field="data">
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</template>

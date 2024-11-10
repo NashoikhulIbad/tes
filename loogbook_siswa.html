@@ -1,0 +1,228 @@
+<script type="module" defer>
+    import { httpPost, httpGet } from './assets/js/core/http.js';
+    import { getCurrentUser, getSelectedPasien, getFormEntries, setFormEntries } from './assets/js/core/helpers.js';
+    import EvoDialog from './components/EvoDialog.js';
+   
+    const mainDialog = new EvoDialog('mainDialog');
+    const loadData = async () => {
+     const listpasien = document.getElementById('daftarpasien-title');
+     const currentuser = getCurrentUser('kd_user'); 
+     const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+     const frm_data = {kd_user: selectedpasien.kd_user};
+     let rs = await httpGet(`http://192.168.4.246/training/pendidikan/api/loogbook_siswa/load`, frm_data);
+     const frm_entries = document.getElementById('loogbook_siswa-entries');
+     let dataset = []
+     if (rs.code == 200) dataset = rs.data; 
+     let res = setFormEntries(frm_entries, dataset);
+     loadTabel();
+    }
+    const saveData = async () => {
+     loogbook_siswa = getFormEntries(frm_entries);
+     const listpasien = document.getElementById('daftarpasien-title');
+     const currentuser = getCurrentUser('kd_user'); 
+     const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+     const frm_data = {single_id: selectedpasien.single_id, no_kunjungan: selectedpasien.no_kunjungan, ...loogbook_siswa, kd_user: currentuser};
+     let rs = await httpPost(`http://192.168.4.246/training/pendidikan/api/loogbook_siswa/save`, frm_data);
+     console.log(frm_data);
+     if(rs.code == 200){
+         loadTabel();
+     }
+     return true;
+    }
+
+    const saveTabel = async () => {
+        const listpasien = document.getElementById('daftarpasien-title');
+        const currentuser = getCurrentUser('kd_user');
+        const tanggal = document.getElementById('txt_logsiswa_tanggal').value;
+        const topik = document.getElementById('txt_logsiswa_topik').value;
+        const level_kompetensi = document.getElementById('sel_logsiswa_levelkompetensi').value;
+        const dosen_pem = document.getElementById('sel_logsiswa_dospem').value;
+        const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+        const frm_data = { tanggal, topik, level_kompetensi, dosen_pem, kd_user: currentuser };
+        let rs = await httpPost(`http://192.168.4.246/training/pendidikan/api/loogbook_siswa/save_tabel`, frm_data);
+        //return await httpPost(`${config.api_url}/penerimaan_siswa/save`, frm_data);
+        //console.log(frm_data);
+        if (rs.code == 200) {
+            loadTabel();
+        }
+        return true;
+    }
+    
+    const loadTabel = async () => {
+        const listpasien = document.getElementById('daftarpasien-title');
+        const currentuser = getCurrentUser('kd_user');
+        const selectedpasien = getSelectedPasien(`pasien-${listpasien.dataset.tagger}`);
+        const frm_data = { kd_user: selectedpasien.kd_user };
+        let rs = await httpGet(`http://192.168.4.246/training/pendidikan/api/loogbook_siswa/load_tabel`, frm_data);
+        const table = document.getElementById('tbl_logsiswa').getElementsByTagName('tbody')[0];
+        let dataset = [];
+        table.innerHTML = '';  // Kosongkan tbody
+        if (rs.code == 200) dataset = rs.data;
+        dataset.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="text-900 sort white-space-nowrap text-center align-middle px-1">${item.tanggal}</td>
+                <td class="text-900 sort white-space-nowrap text-center align-middle px-1">${item.topik}</td>
+                <td class="text-900 sort white-space-nowrap text-center align-middle px-1">${item.level_kompetensi}</td>
+                <td class="text-900 sort white-space-nowrap text-center align-middle px-1">${item.dosen_pem}</td>
+                <td><div><button class="d-inline-block btn btn-success btn-sm" id="btn_approve"><i class="fa-regular fa-paper-plane"></i> Kirim</button></div></td>
+                <td class="text-900 sort white-space-nowrap text-center align-middle px-1"></td>
+                <td class="text-900 sort white-space-nowrap text-center align-middle px-1"></td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    document.loogbook_siswa = { loadData };
+    let loogbook_siswa = {};
+    let frm_actions = document.getElementById('loogbook_siswa-actions');
+    const frm_entries = document.getElementById('loogbook_siswa-entries');
+    let btn_simpan = frm_actions.querySelector('a[href="#!btn_simpan"]');
+    btn_simpan.addEventListener('click', async (e) => {
+     e.preventDefault();
+     let rs = saveData();
+     let options = {
+      size: 'small',
+      modal: true,
+      autoclose: true,
+      autoCloseAfter: 2000
+     }
+     let params = {
+      type: 'information',
+      title: '<span class="text-black">Informasi</span>', 
+      content: '<span class="text-danger">Simpan pemeriksaan fisik sukses</span>'
+     };
+     if (rs.code > 200) {
+      options = {
+       size: 'small',
+       modal: true
+      }
+      params = {
+       type: 'warning',
+       title: '<span class="text-black">Peringatan</span>', 
+       content: '<span class="text-danger">Simpan pemeriksaan fisik gagal!!</span>'
+      };
+     }
+     mainDialog.open(options, params);
+    })
+
+    let frm_actions2 = document.getElementById('btn_tambah_logbook');
+    const frm_entries2 = document.getElementById('penerimaan_siswa-entries');
+    let btn_tambah_logbook = frm_actions2.querySelector('a[href="#!btn-tambah_logbook"]');
+    btn_tambah_logbook.addEventListener('click', async (e) => {
+        e.preventDefault();
+        let rs = saveTabel();
+        let options = {
+            size: 'small',
+            modal: true,
+            autoclose: true,
+            autoCloseAfter: 2000
+        }
+        let params = {
+            type: 'information',
+            title: '<span class="text-black">Informasi</span>',
+            content: '<span class="text-danger">Simpan tabel logbook sukses</span>'
+        };
+        if (rs.code > 200) {
+            options = {
+                size: 'small',
+                modal: true
+            }
+            params = {
+                type: 'warning',
+                title: '<span class="text-black">Peringatan</span>',
+                content: '<span class="text-danger">Simpan tabel logbook gagal!!</span>'
+            };
+        }
+        mainDialog.open(options, params);
+    })
+   </script>
+  
+  <template>
+    <div id="loogbook_siswa-actions" class="card sticky-top">
+      <div class="card-body row justify-content-between p-0 pt-2 ps-2 pe-2">
+        <div class="col-md">
+          <h4>Loogbook Siswa</h4>
+        </div>
+        <div class="col-auto">
+          <a class="btn btn-sm btn-secondary fs--1" href="#" role="button"><span class="fas fa-border-none"></span> Template</a>
+          <a class="btn btn-sm btn-secondary fs--1" href="#" role="button"><span class="fas fa-clock-rotate-left"></span>Sebelumnya</a>
+          <a class="btn btn-sm btn-secondary fs--1" href="#" role="button"><span class="fas fa-clock"></span> Sekarang</a>
+          <a class="btn btn-sm btn-primary fs--1" href="#!btn_simpan" role="button"><span class="fas fa-floppy-disk"></span> Simpan</a>
+          <a class="btn btn-sm btn-secondary fs--1" href="#!btn-cetak" role="button"><span class="fas fa-print"></span>Cetak</a>
+        </div>
+      </div>
+    </div>
+    <div id="loogbook_siswa-entries" class="m-0 p-0 mt-1">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                           <form>
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <select class="d-inline-block form-select js-choice" id="sel_logsiswa_jenis_logbook" data-type="sel" data-field="jenis_logbook" size="1"  data-options='{"removeItemButton":true,"placeholder":true}'>
+                                        <option value="1">Jenis Logbook</option>
+                                        <option value="2">Option1 </option>
+                                        <option value="3">Option2 </option>
+                                        <option value="4">Option3</option>
+                                      </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="d-inline-block btn btn-success" id="btn_jenis_logsiswa"><i class="fa-regular fa-square-plus"></i> Tambah</button>
+                                </div>
+                            </div>
+                           <div class="p-2 border border-secondary">
+                                <div class="p-2 bg-white text-dark mt-n4" style="width: fit-content;">Logbook Siswa</div>
+                                <div class="row mb-5">
+                                    <label class="col-md-1">Tanggal</label>
+                                    <div class="col-md-3">
+                                        <input class="form-control form-control-sm" type="date" id="txt_logsiswa_tanggal" data-type="txt" data-field="tanggal">
+                                    </div>
+                                    <label class="col-md-2">Dosen Pembimbing</label>
+                                    <div class="col-md-3">
+                                        <select class="form-select form-select-sm" id="sel_logsiswa_dospem" size="1"  data-type="sel" data-field="dosen_pem" data-options='{"removeItemButton":true,"placeholder":true}'>
+                                            <option value="1">dr. yunita</option>
+                                            <option value="2">Option1 </option>
+                                            <option value="3">Option2 </option>
+                                            <option value="4">Option3</option>
+                                          </select>
+                                    </div>
+                                </div>
+                                <div class="row mb-4">
+                                    <div class="col-md-5"><textarea placeholder="Topik" class="form-control form-control-sm" id="txt_logsiswa_topik" data-type="txt" data-field="topik"
+                                        rows="4"></textarea>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <select class="form-select form-select-sm" id="sel_logsiswa_levelkompetensi" data-type="sel" data-field="level_kompetensi"  size="1"  data-options='{"removeItemButton":true,"placeholder":true}'>
+                                            <option value="1">LK</option>
+                                            <option value="2">Option1 </option>
+                                            <option value="3">Option2 </option>
+                                            <option value="4">Option3</option>
+                                          </select>
+                                    </div>
+                                    <div class="col-md-2" id="btn_tambah_logbook">
+                                        <a class="btn btn-success btn-sm fs--1" href="#!btn-tambah_logbook" role="button"><span
+                                            class="fa-regular fa-square-plus"></span> Tambah</a>
+                                    </div>
+                                </div>
+                                <table width="100%" class="text-center table border table-bordered border-secondary table-sm fs--1 mb-0 overflow-hidden" id="tbl_logsiswa">
+                                    <thead class="bg-200">
+                                        <td>Tanggal</td>
+                                        <td>Topik</td>
+                                        <td>LK</td>
+                                        <td>Dosen Pembimbing</td>
+                                        <td>Action</td>
+                                        <td>Status</td>
+                                        <td>Keterangan</td>
+                                    </thead>
+                                    <tbody  class="list" id="tbl_logsiswa_data" data-parent="loogbook_siswa" data-type="tbl"
+                                    data-field="data">
+                                       
+                                    </tbody>
+                                </table>
+                           </div>
+                           </form>
+                        </div>
+                    </div>
+               
+                </div>
+            </template>
